@@ -1,0 +1,5 @@
+datasets/kitti_nyu
+wandb
+__pycache__
+*.pyc
+checkpoints/
