@@ -40,3 +40,18 @@ conda activate space-clip
 pip install -r requirements.txt
 ```
 
+## Citation
+If you find this repository helpful, please consider citing:
+
+```
+@misc{cho2026spaceclipspatialperceptionadaptive,
+      title={SPACE-CLIP: Spatial Perception via Adaptive CLIP Embeddings for Monocular Depth Estimation}, 
+      author={Taewan Cho and Taeryang Kim and Andrew Jaeyong Choi},
+      year={2026},
+      eprint={2601.17657},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2601.17657}, 
+}
+```
+
