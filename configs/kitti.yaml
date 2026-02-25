@@ -1,32 +1,25 @@
-# kitti_train.yaml
+# kitti.yaml
 
-# =============================================================================
-# General Training Settings
-# =============================================================================
-name: "SPACE_CLIP_KITTI_FULL"  # 실험에 맞게 이름 변경 (예: "Ablation_No_FiLM")
-epochs: 10                     # 충분한 학습을 위해 에포크 수 증가 권장
+name: "SPACE_CLIP_KITTI"
+epochs: 20
 learning_rate: 0.0001
 weight_decay: 0.01
-batch_size: 64                 # GPU 메모리에 맞게 조절
+batch_size: 64
 workers: 8
 gpu: "0"
 root: "."
 checkpoint_path: ""
 
 random_seed: 42
-step_lr_step_size: 2
-step_lr_gamma: 0.5 
+scheduler: "cosine_warmup"
+min_lr: 0.000001
+warmup_ratio: 0.05
 
-# --- Logging & Validation Settings ---
 validate_epochs: 1
 num_log_images: 5
-notes: "Full model training of Space-CLIP on KITTI." # 실험 내용에 맞게 수정
-tags: "space_clip,kitti,full_model" # 실험 태그 수정
+notes: "SPACE-CLIP KITTI default config (reported setting)."
+tags: "space_clip,kitti,default,ema,aux"
 
-
-# =============================================================================
-# Dataset Settings (KITTI - Eigen Split)
-# =============================================================================
 dataset: "kitti"
 data_path: "./datasets/kitti_nyu/kitti/"
 gt_path: "./datasets/kitti_nyu/kitti/train/"
@@ -44,36 +37,36 @@ do_random_rotate: true
 degree: 1.0
 
 min_depth: 0.001
-max_depth: 80
+max_depth: 80.0
 min_depth_eval: 0.001
-max_depth_eval: 80
+max_depth_eval: 80.0
 eigen_crop: true
 garg_crop: false
 
+use_film: true
+use_structural_pathway: true
+use_multiscale_supervision: true
+aux_loss_weights: [0.10, 0.05, 0.00]
 
-# =============================================================================
-# SPACE-CLIP Model Specific Settings
-# =============================================================================
-# [수정] 새로운 아키텍처를 위한 설정
-use_film: true                     # FiLM 사용 여부
-use_structural_pathway: true       # True: 구조적 정제 경로 사용, False: 사용 안 함
+use_ema: true
+ema_decay: 0.996
+eval_with_ema: false
+eval_both_for_best: true
 
-# --- CLIP Backbone Settings ---
+eval_flip_tta: false
+final_eval_flip_tta: true
+
 clip_model_name: "openai/clip-vit-base-patch16"
 freeze_clip_vision: true
+clip_interpolate_pos_encoding: false
 
-# --- Pathway Feature Indices ---
-# 메인 경로: 깊은 레이어부터 (의미론적 정보)
-main_path_indices: [12, 9, 6, 3] 
-# 구조적 경로: 초기 레이어부터 (구조적 정보)
+main_path_indices: [12, 9, 6, 3]
 structural_path_indices: [2, 1, 0]
-
-# --- FiLM Module Settings (if use_film is true) ---
 film_param_hidden_dim: 256
 
-# --- Decoder Architecture Settings ---
-# 디코더 각 단계의 채널 수. main_path_indices와 길이가 같아야 함.
-decoder_channels: [256, 128, 64, 32] 
+decoder_channels: [256, 128, 64, 32]
 decoder_dropout: 0.1
 
 w_ssim: 0.5
+w_grad: 0.0
+use_image_orig_for_clip: false

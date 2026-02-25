@@ -1,5 +1,55 @@
-datasets/kitti_nyu
-wandb
-__pycache__
-*.pyc
+# -----------------------------
+# Python / build / cache
+# -----------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# -----------------------------
+# Local environments
+# -----------------------------
+.venv/
+venv/
+env/
+.env
+
+# -----------------------------
+# Training artifacts
+# -----------------------------
 checkpoints/
+wandb/
+runs/
+
+# -----------------------------
+# Dataset artifacts (local only)
+# -----------------------------
+datasets/kitti_nyu/
+datasets/_downloads/
+datasets/*.log
+datasets/*.pid
+
+# -----------------------------
+# Local docs / legacy configs
+# -----------------------------
+configs/legacy/
+configs/*_nono_1235.yaml
+scripts/queue_nono_experiments.sh
+paper.tex
+SPACE-CLIP/
+
+# -----------------------------
+# OS / editor
+# -----------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import CLIPVisionModel
-import math
+from typing import Optional, Tuple
 
 class ResidualConvBlock(nn.Module):
     def __init__(self, num_features, dropout_rate=0.1):
@@ -50,7 +50,17 @@ class MainDecoderBlock(nn.Module):
     def __init__(self, low_res_ch, skip_clip_ch, skip_early_refined_ch, out_ch, dropout=0.1, **kwargs):
         super().__init__()
         self.upsample_low = UpsampleBlock(low_res_ch, out_ch)
-        
+        self.skip_clip_gate = nn.Sequential(
+            nn.Conv2d(out_ch, skip_clip_ch, kernel_size=1, bias=True),
+            nn.Sigmoid(),
+        )
+        self.skip_struct_gate = None
+        if skip_early_refined_ch > 0:
+            self.skip_struct_gate = nn.Sequential(
+                nn.Conv2d(out_ch, skip_early_refined_ch, kernel_size=1, bias=True),
+                nn.Sigmoid(),
+            )
+
         self.fusion_conv = nn.Sequential(
             nn.Conv2d(out_ch + skip_clip_ch + skip_early_refined_ch, out_ch, 3, padding=1, bias=False),
             nn.BatchNorm2d(out_ch),
@@ -67,6 +77,13 @@ class MainDecoderBlock(nn.Module):
             skip_feat_clip = F.interpolate(skip_feat_clip, size=target_size, mode='bilinear', align_corners=False)
         if skip_feat_early_refined.shape[-2:] != target_size:
             skip_feat_early_refined = F.interpolate(skip_feat_early_refined, size=target_size, mode='bilinear', align_corners=False)
+
+        clip_gate = self.skip_clip_gate(low_res_up)
+        skip_feat_clip = skip_feat_clip * (1.0 + clip_gate)
+
+        if self.skip_struct_gate is not None and skip_feat_early_refined.shape[1] > 0:
+            struct_gate = self.skip_struct_gate(low_res_up)
+            skip_feat_early_refined = skip_feat_early_refined * (1.0 + struct_gate)
 
         combined_feat = torch.cat([low_res_up, skip_feat_clip, skip_feat_early_refined], dim=1)
         
@@ -116,10 +133,13 @@ class SPACECLIP(nn.Module):
         self.clip_vision_model.eval()
         self.clip_config = self.clip_vision_model.config
         self.clip_embed_dim = self.clip_config.hidden_size
-        self.num_patches_sqrt = self.clip_config.image_size // self.clip_config.patch_size
+        self.patch_size = self.clip_config.patch_size
+        self.clip_interpolate_pos_encoding = self.config.get('clip_interpolate_pos_encoding', False)
+        print(f"CLIP Positional Interpolation: {self.clip_interpolate_pos_encoding}")
         
         self.main_path_indices = self.config.get('main_path_indices', [12, 9, 6, 3])
         self.structural_path_indices = self.config.get('structural_path_indices', [2, 1, 0])
+        self.use_multiscale_supervision = self.config.get('use_multiscale_supervision', False)
 
         # --- 2. FiLM Module ---
         if self.use_film:
@@ -133,6 +153,7 @@ class SPACECLIP(nn.Module):
 
         # --- 3. 디코더 경로(Pathway) 구축 ---
         decoder_channels = self.config.get('decoder_channels', [256, 128, 64, 32])
+        decoder_dropout = self.config.get('decoder_dropout', 0.1)
         
         # 3.1 메인 디코더 경로
         self.main_path_projections = nn.ModuleList([
@@ -163,25 +184,73 @@ class SPACECLIP(nn.Module):
                 struct_refined_ch = 0
             
             self.main_decoder_blocks.append(
-                MainDecoderBlock(main_in_ch, main_skip_ch, struct_refined_ch, decoder_channels[i])
+                MainDecoderBlock(
+                    main_in_ch,
+                    main_skip_ch,
+                    struct_refined_ch,
+                    decoder_channels[i],
+                    dropout=decoder_dropout,
+                )
             )
 
         # --- 4. 최종 깊이 예측 헤드 ---
         final_ch = decoder_channels[-1]
         self.depth_prediction_head = nn.Sequential(
-            UpsampleBlock(final_ch, final_ch // 2),
+            nn.Conv2d(final_ch, final_ch // 2, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(final_ch // 2),
+            nn.ReLU(inplace=True),
             nn.Conv2d(final_ch // 2, 1, 3, padding=1),
             nn.ReLU()
         )
 
-    def _reshape_patch_tokens(self, patch_tokens, B):
-        return patch_tokens.permute(0, 2, 1).reshape(B, self.clip_embed_dim, self.num_patches_sqrt, self.num_patches_sqrt)
+        self.aux_depth_heads = nn.ModuleList()
+        if self.use_multiscale_supervision and len(decoder_channels) > 1:
+            for ch in decoder_channels[:-1]:
+                mid_ch = max(ch // 2, 16)
+                self.aux_depth_heads.append(
+                    nn.Sequential(
+                        nn.Conv2d(ch, mid_ch, kernel_size=3, padding=1, bias=False),
+                        nn.BatchNorm2d(mid_ch),
+                        nn.ReLU(inplace=True),
+                        nn.Conv2d(mid_ch, 1, kernel_size=1),
+                        nn.ReLU(),
+                    )
+                )
 
-    def forward(self, pixel_values: torch.Tensor) -> tuple:
+    def _reshape_patch_tokens(self, patch_tokens, B, patch_grid_h, patch_grid_w):
+        return patch_tokens.permute(0, 2, 1).reshape(B, self.clip_embed_dim, patch_grid_h, patch_grid_w)
+
+    def forward(self, pixel_values: torch.Tensor, output_size: Optional[Tuple[int, int]] = None) -> tuple:
         B, C, H, W = pixel_values.shape
+        patch_grid_h = H // self.patch_size
+        patch_grid_w = W // self.patch_size
+        expected_hw = (self.clip_config.image_size, self.clip_config.image_size)
+
+        if (H, W) != expected_hw and not self.clip_interpolate_pos_encoding:
+            raise ValueError(
+                "Non-224 CLIP input requires clip_interpolate_pos_encoding=true in the config. "
+                f"Got input {(H, W)} with expected {expected_hw}."
+            )
 
         with torch.no_grad():
-            clip_out = self.clip_vision_model(pixel_values=pixel_values, output_hidden_states=True, return_dict=True)
+            try:
+                clip_out = self.clip_vision_model(
+                    pixel_values=pixel_values,
+                    output_hidden_states=True,
+                    return_dict=True,
+                    interpolate_pos_encoding=self.clip_interpolate_pos_encoding,
+                )
+            except TypeError:
+                if self.clip_interpolate_pos_encoding and (H, W) != expected_hw:
+                    raise RuntimeError(
+                        "This transformers version does not support interpolate_pos_encoding for CLIPVisionModel. "
+                        "Please upgrade transformers or disable use_image_orig_for_clip."
+                    )
+                clip_out = self.clip_vision_model(
+                    pixel_values=pixel_values,
+                    output_hidden_states=True,
+                    return_dict=True,
+                )
         
         pooler_out = clip_out.pooler_output
         hidden_states = clip_out.hidden_states
@@ -195,20 +264,23 @@ class SPACECLIP(nn.Module):
                 mod_patch_tokens = self.film_layer(patch_tokens, gamma, beta)
             else:
                 mod_patch_tokens = patch_tokens
-            feat_map = self._reshape_patch_tokens(mod_patch_tokens, B)
+            feat_map = self._reshape_patch_tokens(mod_patch_tokens, B, patch_grid_h, patch_grid_w)
             main_feats.append(self.main_path_projections[i](feat_map))
 
         if self.use_structural_pathway:
             struct_feats = []
             for i, idx in enumerate(self.structural_path_indices):
                 patch_tokens = hidden_states[idx][:, 1:, :]
-                feat_map = self._reshape_patch_tokens(patch_tokens, B)
+                feat_map = self._reshape_patch_tokens(patch_tokens, B, patch_grid_h, patch_grid_w)
                 struct_feats.append(self.structural_path_projections[i](feat_map))
         
         # --- 2. 디코더 실행 ---
         main_path_x = main_feats[0]
-        struct_path_x = self._reshape_patch_tokens(hidden_states[self.structural_path_indices[0]][:,1:,:], B) if self.use_structural_pathway else None
+        struct_path_x = self._reshape_patch_tokens(
+            hidden_states[self.structural_path_indices[0]][:, 1:, :], B, patch_grid_h, patch_grid_w
+        ) if self.use_structural_pathway else None
 
+        decoder_stage_features = []
         for i in range(len(self.main_decoder_blocks)):
             if self.use_structural_pathway and i < len(self.structural_decoder_blocks):
                 struct_skip = struct_feats[i]
@@ -222,10 +294,21 @@ class SPACECLIP(nn.Module):
 
             skip_main = main_feats[i]
             main_path_x = self.main_decoder_blocks[i](main_path_x, skip_main, skip_struct_refined)
+            decoder_stage_features.append(main_path_x)
 
         # --- 3. 최종 깊이 예측 ---
         depth_map = self.depth_prediction_head(main_path_x)
-        if depth_map.shape[-2:] != (H, W):
-            depth_map = F.interpolate(depth_map, size=(H, W), mode='bilinear', align_corners=False)
-        
-        return None, depth_map
+        target_size = output_size if output_size is not None else (H, W)
+        if depth_map.shape[-2:] != target_size:
+            depth_map = F.interpolate(depth_map, size=target_size, mode='bilinear', align_corners=False)
+
+        aux_predictions = None
+        if self.use_multiscale_supervision and len(self.aux_depth_heads) > 0:
+            aux_predictions = []
+            for aux_head, feat in zip(self.aux_depth_heads, decoder_stage_features[:-1]):
+                aux_depth = aux_head(feat)
+                if aux_depth.shape[-2:] != target_size:
+                    aux_depth = F.interpolate(aux_depth, size=target_size, mode='bilinear', align_corners=False)
+                aux_predictions.append(aux_depth)
+
+        return aux_predictions, depth_map

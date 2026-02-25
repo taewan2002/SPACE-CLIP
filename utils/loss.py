@@ -77,7 +77,7 @@ class SILogLoss(nn.Module):
         if mask is not None:
             # If no pixels are valid in the mask, return 0 loss
             if not mask.any():
-                return torch.tensor(0.0, device=input_depth.device, requires_grad=True)
+                return input_depth.sum() * 0.0
             
             input_pixels = input_depth_valid[mask]
             target_pixels = target_depth_valid[mask]
@@ -87,7 +87,7 @@ class SILogLoss(nn.Module):
 
         # If masking results in no pixels, return 0 loss
         if input_pixels.numel() == 0:
-            return torch.tensor(0.0, device=input_depth.device, requires_grad=True)
+            return input_depth.sum() * 0.0
 
         # Calculate the log-space difference
         log_diff = torch.log(input_pixels) - torch.log(target_pixels)
@@ -97,7 +97,7 @@ class SILogLoss(nn.Module):
         if num_pixels < 2: # Variance is not well-defined for a single element
             loss_var = torch.tensor(0.0, device=log_diff.device)
         else:
-            loss_var = torch.var(log_diff)
+            loss_var = torch.var(log_diff, unbiased=False)
         
         loss_mean_sq = torch.pow(torch.mean(log_diff), 2)
 
@@ -240,19 +240,33 @@ class SSIMLoss(nn.Module):
             input_depth = F.interpolate(input_depth, size=target_depth.shape[-2:],
                                         mode='bilinear', align_corners=True)
             
-        # SSIM is sensitive to the dynamic range of the data.
-        # Normalize depth maps to [0, 1] range for consistent SSIM calculation.
-        # This is a common practice for depth maps which can have arbitrary scales.
-        min_depth = torch.min(target_depth)
-        max_depth = torch.max(target_depth)
-        
-        input_norm = (input_depth - min_depth) / (max_depth - min_depth)
-        target_norm = (target_depth - min_depth) / (max_depth - min_depth)
-        
+        if mask is not None and mask.ndim == 3:
+            mask = mask.unsqueeze(1)
+
+        # Per-sample normalization with valid depth region for stable SSIM.
+        input_norm = torch.zeros_like(input_depth)
+        target_norm = torch.zeros_like(target_depth)
+        eps = 1e-6
+        for b in range(target_depth.shape[0]):
+            if mask is not None:
+                valid = mask[b].to(torch.bool)
+                if not valid.any():
+                    continue
+                target_vals = target_depth[b][valid]
+            else:
+                target_vals = target_depth[b].reshape(-1)
+
+            min_depth = target_vals.min()
+            max_depth = target_vals.max()
+            scale = torch.clamp(max_depth - min_depth, min=eps)
+
+            input_norm[b] = (input_depth[b] - min_depth) / scale
+            target_norm[b] = (target_depth[b] - min_depth) / scale
+
         # Clamp to [0, 1] range
         input_norm = torch.clamp(input_norm, 0, 1)
         target_norm = torch.clamp(target_norm, 0, 1)
-        
+
         # Calculate SSIM
         ssim_val, _ = self._ssim(input_norm, target_norm)
 
@@ -261,16 +275,71 @@ class SSIMLoss(nn.Module):
 
         # Apply mask if provided
         if mask is not None:
-            if mask.ndim == 3: mask = mask.unsqueeze(1)
             if mask.shape != loss.shape:
                 mask = F.interpolate(mask.float(), size=loss.shape[-2:], mode='nearest').to(torch.bool)
-            
+
             # Apply mask and calculate mean only on valid pixels
             if mask.any():
                 loss = loss[mask].mean()
             else:
-                return torch.tensor(0.0, device=input_depth.device, requires_grad=True)
+                return input_depth.sum() * 0.0
         else:
             loss = loss.mean()
-            
+
         return loss
+
+
+class GradientLoss(nn.Module):
+    """Edge-aware depth gradient alignment loss (L1 on spatial derivatives)."""
+
+    def __init__(self):
+        super().__init__()
+        self.name = 'GradientLoss'
+
+    def forward(
+        self,
+        input_depth: torch.Tensor,
+        target_depth: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        interpolate: bool = True,
+    ) -> torch.Tensor:
+        input_depth = input_depth.to(torch.float32)
+        target_depth = target_depth.to(torch.float32)
+
+        if input_depth.ndim == 3:
+            input_depth = input_depth.unsqueeze(1)
+        if target_depth.ndim == 3:
+            target_depth = target_depth.unsqueeze(1)
+
+        if interpolate and input_depth.shape[-2:] != target_depth.shape[-2:]:
+            input_depth = F.interpolate(
+                input_depth, size=target_depth.shape[-2:], mode='bilinear', align_corners=True
+            )
+
+        pred_dx = input_depth[:, :, :, 1:] - input_depth[:, :, :, :-1]
+        pred_dy = input_depth[:, :, 1:, :] - input_depth[:, :, :-1, :]
+        tgt_dx = target_depth[:, :, :, 1:] - target_depth[:, :, :, :-1]
+        tgt_dy = target_depth[:, :, 1:, :] - target_depth[:, :, :-1, :]
+
+        loss_dx = torch.abs(pred_dx - tgt_dx)
+        loss_dy = torch.abs(pred_dy - tgt_dy)
+
+        if mask is not None:
+            if mask.ndim == 3:
+                mask = mask.unsqueeze(1)
+            if mask.shape != input_depth.shape:
+                mask = F.interpolate(mask.float(), size=input_depth.shape[-2:], mode='nearest').to(torch.bool)
+
+            mask_dx = mask[:, :, :, 1:] & mask[:, :, :, :-1]
+            mask_dy = mask[:, :, 1:, :] & mask[:, :, :-1, :]
+
+            has_dx = mask_dx.any()
+            has_dy = mask_dy.any()
+            if not has_dx and not has_dy:
+                return input_depth.sum() * 0.0
+
+            dx_term = loss_dx[mask_dx].mean() if has_dx else input_depth.sum() * 0.0
+            dy_term = loss_dy[mask_dy].mean() if has_dy else input_depth.sum() * 0.0
+            return 0.5 * (dx_term + dy_term)
+
+        return 0.5 * (loss_dx.mean() + loss_dy.mean())

@@ -54,6 +54,17 @@ def count_parameters(model):
 
 
 def compute_errors(gt, pred):
+    gt = np.asarray(gt, dtype=np.float64)
+    pred = np.asarray(pred, dtype=np.float64)
+
+    valid = np.isfinite(gt) & np.isfinite(pred) & (gt > 1e-6) & (pred > 1e-6)
+    if not np.any(valid):
+        nan = float("nan")
+        return dict(a1=nan, a2=nan, a3=nan, abs_rel=nan, rmse=nan, log_10=nan, rmse_log=nan, silog=nan, sq_rel=nan)
+
+    gt = np.clip(gt[valid], 1e-6, None)
+    pred = np.clip(pred[valid], 1e-6, None)
+
     thresh = np.maximum((gt / pred), (pred / gt))
     a1 = (thresh < 1.25).mean()
     a2 = (thresh < 1.25 ** 2).mean()
@@ -69,7 +80,8 @@ def compute_errors(gt, pred):
     rmse_log = np.sqrt(rmse_log.mean())
 
     err = np.log(pred) - np.log(gt)
-    silog = np.sqrt(np.mean(err ** 2) - np.mean(err) ** 2) * 100
+    silog_term = np.mean(err ** 2) - np.mean(err) ** 2
+    silog = np.sqrt(max(float(silog_term), 0.0)) * 100
 
     log_10 = (np.abs(np.log10(gt) - np.log10(pred))).mean()
     return dict(a1=a1, a2=a2, a3=a3, abs_rel=abs_rel, rmse=rmse, log_10=log_10, rmse_log=rmse_log,

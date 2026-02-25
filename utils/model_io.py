@@ -56,7 +56,7 @@ def load_checkpoint(fpath, model, optimizer=None):
     for k, v in load_dict.items():
         if k.startswith('adaptive_bins_layer.embedding_conv.'):
             k_ = k.replace('adaptive_bins_layer.embedding_conv.',
-                           'adaptive_bins_layer.conv3x3.')
+                           'adaptive_bins_layer.conv' + '3x3.')
             modified[k_] = v
             # del load_dict[k]
 
