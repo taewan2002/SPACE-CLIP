@@ -1,24 +1,36 @@
-## Datasets
+## Dataset Setup
 
-This project uses several datasets for training and evaluation. Please ensure you have the following datasets available:
-
-- huggingface datasets: `taewan/kitti_nyu`
-
-You can download the datasets from the following links:
-
-- [taewan/kitti_nyu](https://huggingface.co/datasets/taewan2002/kitti_nyu)
+This repository uses a single recommended setup path:
 
 ```bash
-git lfs install
-git clone https://huggingface.co/datasets/taewan2002/kitti_nyu
-cd kitti_nyu
+bash scripts/setup_datasets.sh
 ```
+
+This script downloads KITTI/NYU files, extracts them, and validates split paths.
+
+### Custom data root
+
+By default, data is created under `./datasets`. To use a different location:
 
 ```bash
-for f in *.tar.gz; do tar -xzvf "$f" && rm "$f"; done
-mv 2011_09_26_2/* 2011_09_26_1/
-rmdir 2011_09_26_2
-mv 2011_09_26_1 2011_09_26
+bash scripts/setup_datasets.sh /path/to/data_root
 ```
 
-Make sure to place the datasets in the appropriate directory before running the project.
+The expected structure is:
+
+```text
+<data_root>/
+  kitti_nyu/
+    kitti/
+    nyu_depth_v2/  (and symlink: nyu -> nyu_depth_v2)
+  _downloads/
+```
+
+### Config path alignment
+
+Default configs (`configs/kitti.yaml`, `configs/nyu.yaml`) expect:
+
+- `./datasets/kitti_nyu/kitti/...`
+- `./datasets/kitti_nyu/nyu_depth_v2/...`
+
+If you use a custom data root, update dataset paths in your config accordingly.

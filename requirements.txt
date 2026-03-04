@@ -1,15 +1,9 @@
 torch
 transformers
-accelerate
 pillow
 numpy
 wandb
-scipy
-ftfy
-regex
 tqdm
-opencv-python
-wheel
 pyyaml
 matplotlib
 torchvision

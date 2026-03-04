@@ -51,6 +51,7 @@ bash scripts/setup_datasets.sh
 ```
 
 The script downloads and organizes KITTI/NYU files under local dataset paths used by config files.
+For custom dataset roots and expected directory layout, see `datasets/README.md`.
 
 ## Training
 

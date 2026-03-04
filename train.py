@@ -27,13 +27,22 @@ from utils import model_io
 
 # --- 상수 정의 ---
 PROJECT_DEFAULT_PREFIX = "space-clip"
-LOGGING_ENABLED = True  # WandB 로깅 활성화 여부
+LOGGING_ENABLED = False  # WandB 로깅 활성화 여부 (runtime setup)
 
-try:
-    wandb.login()
-except Exception as e:
-    LOGGING_ENABLED = False
-    print(f"Warning: WandB login failed. Logging disabled. ({e})")
+
+def setup_wandb_logging(enable: bool = True) -> bool:
+    """Configure WandB login at runtime to avoid import-time side effects."""
+    global LOGGING_ENABLED
+    if not enable:
+        LOGGING_ENABLED = False
+        return LOGGING_ENABLED
+    try:
+        wandb.login()
+        LOGGING_ENABLED = True
+    except Exception as e:
+        LOGGING_ENABLED = False
+        print(f"Warning: WandB login failed. Logging disabled. ({e})")
+    return LOGGING_ENABLED
 
 # --- 유틸리티 함수 ---
 def set_random_seed(seed: int = None):
@@ -200,6 +209,7 @@ def log_depth_images_to_wandb(rgb_list, gt_depth_list, pred_depth_list, global_s
 def train(model: torch.nn.Module, args: argparse.Namespace):
     device = setup_device(args)
     model.to(device)
+    setup_wandb_logging(enable=bool(getattr(args, 'use_wandb', True)))
 
     train_loader = DepthDataLoader(args, 'train', collate_fn=safe_collate).data
     val_loader = DepthDataLoader(args, 'online_eval', collate_fn=safe_collate).data
