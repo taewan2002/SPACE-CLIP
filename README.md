@@ -81,6 +81,20 @@ python scripts/eval_spaceclip_checkpoint.py \
   --checkpoint checkpoints/SPACE_CLIP_KITTI/best_checkpoint.pt
 ```
 
+Evaluation protocol controls:
+
+- `eval_crop`: `none` / `eigen` / `garg` (or `auto` via legacy booleans)
+- `median_scaling_eval`: `false` by default in release configs
+- CLI overrides are available:
+
+```bash
+python scripts/eval_spaceclip_checkpoint.py \
+  --config configs/kitti.yaml \
+  --checkpoint checkpoints/SPACE_CLIP_KITTI/best_checkpoint.pt \
+  --crop eigen \
+  --median-scaling false
+```
+
 ## Reproducibility Notes
 
 - Default CLIP input is resized to `224x224` (see `utils/dataloader.py`).

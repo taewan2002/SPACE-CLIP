@@ -86,7 +86,19 @@ def setup_device(args: argparse.Namespace) -> torch.device:
 
 def safe_collate(batch):
     """DataLoader에서 None 샘플을 안전하게 걸러내는 collate_fn."""
+    original_size = len(batch)
     batch = list(filter(lambda x: x is not None, batch))
+    dropped = original_size - len(batch)
+    if dropped > 0:
+        warn_count = getattr(safe_collate, "_drop_warn_count", 0)
+        warn_limit = getattr(safe_collate, "_drop_warn_limit", 20)
+        if warn_count < warn_limit:
+            print(
+                f"[safe_collate][WARN] Dropped {dropped}/{original_size} invalid samples in a batch."
+            )
+        elif warn_count == warn_limit:
+            print("[safe_collate][WARN] Drop warning limit reached. Further warnings are suppressed.")
+        safe_collate._drop_warn_count = warn_count + 1
     if len(batch) == 0:
         return None
     return default_collate(batch)
@@ -171,6 +183,52 @@ def infer_depth(
     depth_flip = torch.flip(depth_flip, dims=[3])
     depth_pred = 0.5 * (depth_pred + depth_flip)
     return aux_preds, depth_pred
+
+
+def resolve_eval_crop_mode(args: argparse.Namespace) -> str:
+    """Resolve evaluation crop mode from config with backward compatibility."""
+    mode = str(getattr(args, "eval_crop", "auto")).strip().lower()
+    if mode in {"", "auto"}:
+        if bool(getattr(args, "garg_crop", False)):
+            return "garg"
+        if bool(getattr(args, "eigen_crop", False)):
+            return "eigen"
+        return "none"
+    if mode not in {"none", "eigen", "garg"}:
+        raise ValueError(f"Invalid eval_crop='{mode}'. Use one of: auto, none, eigen, garg.")
+    return mode
+
+
+def build_eval_crop_mask(depth_map: np.ndarray, args: argparse.Namespace, crop_mode: str) -> np.ndarray | None:
+    """Build crop mask for benchmark evaluation protocol."""
+    if crop_mode == "none":
+        return None
+
+    h, w = depth_map.shape
+    dataset = str(getattr(args, "dataset", "")).lower()
+    crop_mask = np.zeros((h, w), dtype=bool)
+
+    if crop_mode == "garg":
+        if dataset != "kitti":
+            return None
+        crop_mask[
+            int(0.40810811 * h):int(0.99189189 * h),
+            int(0.03594771 * w):int(0.96405229 * w),
+        ] = True
+        return crop_mask
+
+    # crop_mode == "eigen"
+    if dataset == "kitti":
+        crop_mask[
+            int(0.3324324 * h):int(0.91351351 * h),
+            int(0.0359477 * w):int(0.96405229 * w),
+        ] = True
+        return crop_mask
+    if dataset == "nyu":
+        crop_mask[45:471, 41:601] = True
+        return crop_mask
+    return None
+
 
 def log_depth_images_to_wandb(rgb_list, gt_depth_list, pred_depth_list, global_step, prefix="Val_Vis/"):
     if not LOGGING_ENABLED or not wandb.run: return
@@ -501,8 +559,14 @@ def validate(model, val_loader, criterions, w_ssim, w_grad, args, device, global
     eval_metrics = RunningAverageDict()
     criterion_silog, criterion_ssim, criterion_grad = criterions
     use_flip_tta = bool(getattr(args, 'eval_flip_tta', False))
+    use_median_scaling = bool(getattr(args, "median_scaling_eval", False))
+    crop_mode = resolve_eval_crop_mode(args)
     use_multiscale_supervision = bool(getattr(args, 'use_multiscale_supervision', False))
     aux_loss_weights = getattr(args, 'aux_loss_weights', [0.25, 0.125, 0.0625])
+    print(
+        f"[validate] crop_mode={crop_mode}, median_scaling_eval={use_median_scaling}, "
+        f"flip_tta={use_flip_tta}"
+    )
 
     with torch.no_grad():
         pbar = tqdm(val_loader, desc="Validating")
@@ -546,30 +610,22 @@ def validate(model, val_loader, criterions, w_ssim, w_grad, args, device, global
             for i in range(gt_np.shape[0]):
                 p, g = pred_np[i].squeeze(), gt_np[i].squeeze()
                 valid_eval_mask = (g > args.min_depth_eval) & (g < args.max_depth_eval)
-                
-                if getattr(args, 'garg_crop', False):
-                    h, w = g.shape
-                    crop_mask = np.zeros_like(valid_eval_mask)
-                    if args.dataset == 'kitti':
-                        crop_mask[int(0.40810811 * h):int(0.99189189 * h), int(0.03594771 * w):int(0.96405229 * w)] = True
-                    else: # NYU
-                        crop_mask[45:471, 41:601] = True
+
+                crop_mask = build_eval_crop_mask(g, args, crop_mode)
+                if crop_mask is not None:
                     valid_eval_mask &= crop_mask
 
                 if not valid_eval_mask.any(): continue
                 gt_valid, pred_valid = g[valid_eval_mask], p[valid_eval_mask]
-                
-                pred_median = np.median(pred_valid)
-                gt_median = np.median(gt_valid)
-                if np.isfinite(pred_median) and np.isfinite(gt_median) and pred_median > 1e-6:
-                    scale_factor = gt_median / pred_median
-                else:
-                    scale_factor = 1.0
 
-                pred_valid_scaled = pred_valid * scale_factor
-                pred_valid_scaled = np.clip(pred_valid_scaled, args.min_depth_eval, args.max_depth_eval)
+                if use_median_scaling:
+                    pred_median = np.median(pred_valid)
+                    gt_median = np.median(gt_valid)
+                    if np.isfinite(pred_median) and np.isfinite(gt_median) and pred_median > 1e-6:
+                        pred_valid = pred_valid * (gt_median / pred_median)
 
-                metric_dict = compute_errors(gt_valid, pred_valid_scaled)
+                pred_valid = np.clip(pred_valid, args.min_depth_eval, args.max_depth_eval)
+                metric_dict = compute_errors(gt_valid, pred_valid)
                 if all(np.isfinite(v) for v in metric_dict.values()):
                     eval_metrics.update(metric_dict)
 

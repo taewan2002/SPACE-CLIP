@@ -61,7 +61,7 @@ class DepthDataLoader(object):
                                    collate_fn=collate_fn)
 
 def remove_leading_slash(s):
-    """경로 문자열의 맨 앞 슬래시(/)나 역슬래시(\) 제거"""
+    """경로 문자열의 맨 앞 슬래시(/)나 역슬래시(\\) 제거"""
     if s and (s[0] == '/' or s[0] == '\\'):
         return s[1:]
     return s
@@ -77,6 +77,10 @@ class DataLoadPreprocess(Dataset):
         self.clip_input_size = getattr(args, 'clip_input_size', 224)
         self.target_height = getattr(args, 'input_height', 352)
         self.target_width = getattr(args, 'input_width', 704)
+        self.warn_on_skipped_samples = bool(getattr(args, 'warn_on_skipped_samples', True))
+        self.skip_warning_limit = int(getattr(args, 'skip_warning_limit', 20))
+        self.strict_data_loading = bool(getattr(args, 'strict_data_loading', False))
+        self._skip_warning_count = 0
         
         if mode == 'online_eval':
             filenames_path = args.filenames_file_eval
@@ -95,7 +99,27 @@ class DataLoadPreprocess(Dataset):
 
         self.transform = transform
 
+    def _warn_skip(self, reason, idx=None, sample_line=None, exc=None):
+        if not self.warn_on_skipped_samples:
+            return
+        if self._skip_warning_count < self.skip_warning_limit:
+            parts = [f"[DataLoader][WARN] Skipping sample: {reason}"]
+            if idx is not None:
+                parts.append(f"idx={idx}")
+            if sample_line:
+                parts.append(f"line='{sample_line}'")
+            if exc is not None:
+                parts.append(f"error={repr(exc)}")
+            print(" | ".join(parts))
+        elif self._skip_warning_count == self.skip_warning_limit:
+            print(
+                "[DataLoader][WARN] Skip warning limit reached. "
+                "Further skip warnings are suppressed."
+            )
+        self._skip_warning_count += 1
+
     def __getitem__(self, idx):
+        sample_line = None
         try:
             sample_line = self.filenames[idx]
             parts = sample_line.split()
@@ -107,10 +131,12 @@ class DataLoadPreprocess(Dataset):
             pil_image, pil_depth_gt = self._load_images(img_rel_path, depth_rel_path)
 
             if pil_image is None:
+                self._warn_skip("missing image file", idx=idx, sample_line=sample_line)
                 return None
 
             if self.mode == 'train':
                 if pil_depth_gt is None:
+                    self._warn_skip("missing depth file for train sample", idx=idx, sample_line=sample_line)
                     return None
                 
                 image_processed_np, depth_np = self._preprocess_train(pil_image, pil_depth_gt)
@@ -147,7 +173,10 @@ class DataLoadPreprocess(Dataset):
                 sample = self.transform(sample)
             return sample
 
-        except Exception:
+        except Exception as e:
+            if self.strict_data_loading:
+                raise
+            self._warn_skip("unexpected exception", idx=idx, sample_line=sample_line, exc=e)
             return None
 
     def _load_images(self, img_rel_path, depth_rel_path):

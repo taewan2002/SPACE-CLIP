@@ -34,6 +34,18 @@ def main() -> None:
         default="auto",
         help="Override eval_flip_tta at evaluation time (default: auto uses config value).",
     )
+    parser.add_argument(
+        "--median-scaling",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help="Override median_scaling_eval at evaluation time.",
+    )
+    parser.add_argument(
+        "--crop",
+        choices=["auto", "none", "eigen", "garg"],
+        default="auto",
+        help="Override eval crop mode at evaluation time.",
+    )
     args = parser.parse_args()
 
     cfg = load_config_from_yaml(args.config)
@@ -45,6 +57,12 @@ def main() -> None:
         cfg.eval_flip_tta = True
     elif args.flip_tta == "false":
         cfg.eval_flip_tta = False
+    if args.median_scaling == "true":
+        cfg.median_scaling_eval = True
+    elif args.median_scaling == "false":
+        cfg.median_scaling_eval = False
+    if args.crop != "auto":
+        cfg.eval_crop = args.crop
 
     device = setup_device(cfg)
     model = SPACECLIP(config_model=cfg).to(device)

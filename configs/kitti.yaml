@@ -42,6 +42,8 @@ min_depth_eval: 0.001
 max_depth_eval: 80.0
 eigen_crop: true
 garg_crop: false
+eval_crop: "eigen"
+median_scaling_eval: false
 
 use_film: true
 use_structural_pathway: true
@@ -70,3 +72,7 @@ decoder_dropout: 0.1
 w_ssim: 0.5
 w_grad: 0.0
 use_image_orig_for_clip: false
+
+warn_on_skipped_samples: true
+skip_warning_limit: 20
+strict_data_loading: false
