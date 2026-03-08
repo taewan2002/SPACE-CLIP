@@ -23,10 +23,10 @@ Their features are fused hierarchically to recover high-resolution depth.
 ## Figures
 
 ### Concept
-![SPACE-CLIP concept](figures/fig1_readme.png)
+![SPACE-CLIP concept](figures/fig1.png)
 
 ### Architecture
-![SPACE-CLIP architecture](figures/fig2_readme.png)
+![SPACE-CLIP architecture](figures/fig2.png)
 
 ### KITTI qualitative
 ![KITTI qualitative](figures/fig3.png)
