@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import CLIPVisionModel
+from transformers import CLIPVisionModel, SiglipVisionModel
 from typing import Optional, Tuple
 
 class ResidualConvBlock(nn.Module):
@@ -126,7 +126,8 @@ class SPACECLIP(nn.Module):
 
         # --- 1. Backbone ---
         clip_model_name = self.config.get('clip_model_name', "openai/clip-vit-base-patch16")
-        self.clip_vision_model = CLIPVisionModel.from_pretrained(clip_model_name)
+        self.vision_backbone_type = self._resolve_backbone_type(clip_model_name)
+        self.clip_vision_model = self._load_vision_backbone(clip_model_name)
         if self.config.get('freeze_clip_vision', True):
             for param in self.clip_vision_model.parameters():
                 param.requires_grad = False
@@ -134,7 +135,9 @@ class SPACECLIP(nn.Module):
         self.clip_config = self.clip_vision_model.config
         self.clip_embed_dim = self.clip_config.hidden_size
         self.patch_size = self.clip_config.patch_size
+        self.vision_has_cls_token = self.vision_backbone_type == "clip"
         self.clip_interpolate_pos_encoding = self.config.get('clip_interpolate_pos_encoding', False)
+        print(f"Vision Backbone: {self.vision_backbone_type}")
         print(f"CLIP Positional Interpolation: {self.clip_interpolate_pos_encoding}")
         
         self.main_path_indices = self.config.get('main_path_indices', [12, 9, 6, 3])
@@ -217,10 +220,33 @@ class SPACECLIP(nn.Module):
                     )
                 )
 
+    def _resolve_backbone_type(self, model_name: str) -> str:
+        explicit = str(self.config.get("vision_backbone_type", "auto")).strip().lower()
+        if explicit in {"clip", "siglip"}:
+            return explicit
+        if "siglip" in model_name.lower():
+            return "siglip"
+        return "clip"
+
+    def _load_vision_backbone(self, model_name: str):
+        if self.vision_backbone_type == "siglip":
+            return SiglipVisionModel.from_pretrained(model_name)
+        return CLIPVisionModel.from_pretrained(model_name)
+
+    def _extract_patch_tokens(self, hidden_state: torch.Tensor) -> torch.Tensor:
+        if self.vision_has_cls_token:
+            return hidden_state[:, 1:, :]
+        return hidden_state
+
     def _reshape_patch_tokens(self, patch_tokens, B, patch_grid_h, patch_grid_w):
         return patch_tokens.permute(0, 2, 1).reshape(B, self.clip_embed_dim, patch_grid_h, patch_grid_w)
 
-    def forward(self, pixel_values: torch.Tensor, output_size: Optional[Tuple[int, int]] = None) -> tuple:
+    def forward(
+        self,
+        pixel_values: torch.Tensor,
+        output_size: Optional[Tuple[int, int]] = None,
+        return_intermediates: bool = False,
+    ) -> tuple:
         B, C, H, W = pixel_values.shape
         patch_grid_h = H // self.patch_size
         patch_grid_w = W // self.patch_size
@@ -233,24 +259,23 @@ class SPACECLIP(nn.Module):
             )
 
         with torch.no_grad():
+            vision_kwargs = {
+                "pixel_values": pixel_values,
+                "output_hidden_states": True,
+                "return_dict": True,
+            }
+            if self.vision_backbone_type == "clip":
+                vision_kwargs["interpolate_pos_encoding"] = self.clip_interpolate_pos_encoding
             try:
-                clip_out = self.clip_vision_model(
-                    pixel_values=pixel_values,
-                    output_hidden_states=True,
-                    return_dict=True,
-                    interpolate_pos_encoding=self.clip_interpolate_pos_encoding,
-                )
+                clip_out = self.clip_vision_model(**vision_kwargs)
             except TypeError:
-                if self.clip_interpolate_pos_encoding and (H, W) != expected_hw:
+                if self.clip_interpolate_pos_encoding and (H, W) != expected_hw and self.vision_backbone_type == "clip":
                     raise RuntimeError(
                         "This transformers version does not support interpolate_pos_encoding for CLIPVisionModel. "
                         "Please upgrade transformers or disable use_image_orig_for_clip."
                     )
-                clip_out = self.clip_vision_model(
-                    pixel_values=pixel_values,
-                    output_hidden_states=True,
-                    return_dict=True,
-                )
+                vision_kwargs.pop("interpolate_pos_encoding", None)
+                clip_out = self.clip_vision_model(**vision_kwargs)
         
         pooler_out = clip_out.pooler_output
         hidden_states = clip_out.hidden_states
@@ -258,7 +283,7 @@ class SPACECLIP(nn.Module):
         # --- 1. 경로별 특징 추출 및 변조 ---
         main_feats = []
         for i, idx in enumerate(self.main_path_indices):
-            patch_tokens = hidden_states[idx][:, 1:, :]
+            patch_tokens = self._extract_patch_tokens(hidden_states[idx])
             if self.use_film:
                 gamma, beta = torch.chunk(self.film_param_generators[i](pooler_out), 2, dim=-1)
                 mod_patch_tokens = self.film_layer(patch_tokens, gamma, beta)
@@ -267,25 +292,27 @@ class SPACECLIP(nn.Module):
             feat_map = self._reshape_patch_tokens(mod_patch_tokens, B, patch_grid_h, patch_grid_w)
             main_feats.append(self.main_path_projections[i](feat_map))
 
+        struct_feats = []
         if self.use_structural_pathway:
-            struct_feats = []
             for i, idx in enumerate(self.structural_path_indices):
-                patch_tokens = hidden_states[idx][:, 1:, :]
+                patch_tokens = self._extract_patch_tokens(hidden_states[idx])
                 feat_map = self._reshape_patch_tokens(patch_tokens, B, patch_grid_h, patch_grid_w)
                 struct_feats.append(self.structural_path_projections[i](feat_map))
         
         # --- 2. 디코더 실행 ---
         main_path_x = main_feats[0]
         struct_path_x = self._reshape_patch_tokens(
-            hidden_states[self.structural_path_indices[0]][:, 1:, :], B, patch_grid_h, patch_grid_w
+            self._extract_patch_tokens(hidden_states[self.structural_path_indices[0]]), B, patch_grid_h, patch_grid_w
         ) if self.use_structural_pathway else None
 
         decoder_stage_features = []
+        structural_decoder_features = []
         for i in range(len(self.main_decoder_blocks)):
             if self.use_structural_pathway and i < len(self.structural_decoder_blocks):
                 struct_skip = struct_feats[i]
                 struct_path_x = self.structural_decoder_blocks[i](struct_path_x, struct_skip)
                 skip_struct_refined = struct_path_x
+                structural_decoder_features.append(struct_path_x)
             else:
                 B, _, H_main, W_main = main_path_x.shape
                 target_h, target_w = (H_main * 2, W_main * 2) if i > 0 else (H_main, W_main)
@@ -311,4 +338,17 @@ class SPACECLIP(nn.Module):
                     aux_depth = F.interpolate(aux_depth, size=target_size, mode='bilinear', align_corners=False)
                 aux_predictions.append(aux_depth)
 
-        return aux_predictions, depth_map
+        if not return_intermediates:
+            return aux_predictions, depth_map
+
+        intermediates = {
+            'pooler_output': pooler_out,
+            'semantic_projected': tuple(main_feats),
+            'structural_projected': tuple(struct_feats),
+            'semantic_decoder': tuple(decoder_stage_features),
+            'structural_decoder': tuple(structural_decoder_features),
+            'patch_grid_hw': (patch_grid_h, patch_grid_w),
+            'semantic_layer_indices': tuple(self.main_path_indices),
+            'structural_layer_indices': tuple(self.structural_path_indices),
+        }
+        return aux_predictions, depth_map, intermediates

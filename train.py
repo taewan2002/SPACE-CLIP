@@ -104,10 +104,12 @@ def safe_collate(batch):
     return default_collate(batch)
 
 
-def normalize_for_clip(image_tensor: torch.Tensor) -> torch.Tensor:
-    """[0, 1] 범위 이미지를 CLIP 입력 정규화로 변환."""
-    mean = image_tensor.new_tensor([0.48145466, 0.4578275, 0.40821073]).view(1, 3, 1, 1)
-    std = image_tensor.new_tensor([0.26862954, 0.26130258, 0.27577711]).view(1, 3, 1, 1)
+def normalize_for_backbone(image_tensor: torch.Tensor, args: argparse.Namespace) -> torch.Tensor:
+    """[0, 1] 범위 이미지를 backbone 입력 정규화로 변환."""
+    mean = getattr(args, 'vision_image_mean', [0.48145466, 0.4578275, 0.40821073])
+    std = getattr(args, 'vision_image_std', [0.26862954, 0.26130258, 0.27577711])
+    mean = image_tensor.new_tensor(mean).view(1, 3, 1, 1)
+    std = image_tensor.new_tensor(std).view(1, 3, 1, 1)
     return (image_tensor - mean) / std
 
 
@@ -115,7 +117,7 @@ def get_model_input_from_batch(batch: dict, args: argparse.Namespace, device: to
     """설정에 따라 모델 입력을 선택한다."""
     if getattr(args, 'use_image_orig_for_clip', False):
         image_orig = batch['image_orig'].to(device, non_blocking=True)
-        return normalize_for_clip(image_orig)
+        return normalize_for_backbone(image_orig, args)
     return batch['image_clip'].to(device, non_blocking=True)
 
 

@@ -21,10 +21,16 @@ def _is_numpy_image(img):
     """Numpy ndarray 이미지인지 확인"""
     return isinstance(img, np.ndarray) and (img.ndim in {2, 3})
 
-def preprocessing_transforms(mode):
+def _get_backbone_normalization(args):
+    mean = getattr(args, 'vision_image_mean', [0.48145466, 0.4578275, 0.40821073])
+    std = getattr(args, 'vision_image_std', [0.26862954, 0.26130258, 0.27577711])
+    return mean, std
+
+
+def preprocessing_transforms(args, mode):
     """전처리 파이프라인 생성"""
     return transforms.Compose([
-        ToTensor(mode=mode)
+        ToTensor(mode=mode, args=args)
     ])
 
 class DepthDataLoader(object):
@@ -34,7 +40,7 @@ class DepthDataLoader(object):
     """
     def __init__(self, args, mode, collate_fn=None):
         self.dataset = DataLoadPreprocess(args, mode,
-                                          transform=preprocessing_transforms(mode))
+                                          transform=preprocessing_transforms(args, mode))
         
         if mode == 'train':
             if args.distributed:
@@ -314,10 +320,10 @@ class ToTensor(object):
     """
     Numpy 배열 샘플을 PyTorch 텐서로 변환하는 클래스.
     """
-    def __init__(self, mode):
+    def __init__(self, mode, args):
         self.mode = mode
-        self.normalize = transforms.Normalize(mean=[0.48145466, 0.4578275, 0.40821073], 
-                                              std=[0.26862954, 0.26130258, 0.27577711])
+        mean, std = _get_backbone_normalization(args)
+        self.normalize = transforms.Normalize(mean=mean, std=std)
 
     def __call__(self, sample):
         image_clip_np, image_orig_np, focal = sample['image_clip'], sample['image_orig'], sample['focal']
