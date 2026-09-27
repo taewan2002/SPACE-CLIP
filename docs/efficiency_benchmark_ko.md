@@ -1,5 +1,7 @@
 # SPACE-CLIP 효율 지표 실측 (GPU 0)
 
+> Historical release log. For the controlled v1 study, see [reproducibility.md](reproducibility.md) and [protocol differences](legacy_results.md).
+
 작성일: 2026-02-26  
 대상 리포지토리: `SPACE-CLIP`  
 벤치마크 스크립트: `scripts/benchmark_efficiency.py`

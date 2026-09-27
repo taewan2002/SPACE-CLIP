@@ -1,0 +1,13 @@
+# Python 3.12.3; use the appropriate CUDA wheel source for this torch version.
+torch==2.10.0
+torchvision==0.25.0
+transformers==5.2.0
+numpy==2.4.6
+matplotlib==3.10.9
+pillow==12.1.1
+PyYAML==6.0.3
+pytest==9.1.1
+huggingface_hub==1.33.0
+safetensors==0.8.0
+tqdm==4.67.3
+scipy==1.18.1

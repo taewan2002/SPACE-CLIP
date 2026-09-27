@@ -1,19 +1,7 @@
-# Config Layout
+# Configuration layout
 
-This directory is organized to keep GitHub-facing defaults clean.
+- `layer_study/{early,middle,late}.yaml`: portable templates for the controlled v1 NYU comparison. Run `python -m scripts.layer_study.prepare --train-root PATH --test-root PATH --audit` to write local configurations under ignored `study/configs/`.
+- `kitti.yaml`, `nyu.yaml`: historical release entry points, with the original evaluation-split selection behavior. They are not the controlled-study configurations.
+- `legacy/`: earlier experimental configurations retained for provenance.
 
-- `kitti.yaml`: base KITTI config
-- `nyu.yaml`: base NYU config
-- The reported paper settings are folded into these base configs.
-
-Legacy and intermediate experiment configs are moved to:
-
-- `configs/legacy/`
-
-Examples:
-
-```bash
-# Base configs
-bash scripts/run_release_experiment.sh configs/kitti.yaml 0
-bash scripts/run_release_experiment.sh configs/nyu.yaml 0
-```
+Use the [reproduction guide](../docs/reproducibility.md) for the revised study and [legacy protocol notes](../docs/legacy_results.md) when interpreting earlier scores.

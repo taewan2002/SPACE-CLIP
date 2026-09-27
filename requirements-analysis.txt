@@ -1,0 +1,6 @@
+# CPU-only result verification and paper-figure generation; Python 3.12.
+numpy==2.4.6
+scipy==1.18.1
+matplotlib==3.10.9
+pillow==12.1.1
+PyYAML==6.0.3

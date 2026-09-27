@@ -1,5 +1,7 @@
 # SPACE-CLIP 릴리즈 실험 로그 해설 (한국어)
 
+> Historical release log. For the controlled v1 study, see [reproducibility.md](reproducibility.md) and [protocol differences](legacy_results.md).
+
 문서 목적:
 - `KITTI + NYU Depth V2` 릴리즈 실험 결과를 한국어로 정리
 - 숫자 자체뿐 아니라 **왜 개선됐는지**, **논문에 어떻게 써야 하는지**까지 포함

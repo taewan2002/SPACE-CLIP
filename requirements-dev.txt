@@ -1,0 +1,4 @@
+-r requirements-analysis.txt
+pytest==9.1.1
+ruff==0.16.9
+# Install torch==2.10.0 separately (CPU wheels suffice for unit tests).

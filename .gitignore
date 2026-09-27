@@ -53,3 +53,17 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Controlled study: only results/ contains curated, versioned measurements.
+/study/
+/.hf_cache/
+/.venv*/
+.env.*
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.log
+
+# Curated numeric run records are public; local runs remain ignored.
+!/results/nyu_layer_study/runs/

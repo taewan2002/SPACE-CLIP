@@ -1,0 +1,14 @@
+{
+  "selection_method": "First five test rows ordered by SHA256 of fixed prefix plus complete split row, selected before final predictions.",
+  "prefix": "spaceclip-qualitative-20260926|",
+  "test_split_rows": 654,
+  "test_split_sha256": "e92c191d5835a22589b843c11b80cd7235d5bd0d4136e42a6debcea4511bf906",
+  "selected_rows": [
+    "kitchen/rgb_00773.jpg kitchen/sync_depth_00773.png 518.8579",
+    "bathroom/rgb_00733.jpg bathroom/sync_depth_00733.png 518.8579",
+    "living_room/rgb_00166.jpg living_room/sync_depth_00166.png 518.8579",
+    "bedroom/rgb_00170.jpg bedroom/sync_depth_00170.png 518.8579",
+    "bedroom/rgb_01164.jpg bedroom/sync_depth_01164.png 518.8579"
+  ],
+  "display": "RGB, reference depth, early, middle, late; identical fixed 0.001-10 m depth color scale; show invalid reference pixels explicitly; no per-image percentile scaling."
+}
