@@ -1,4 +1,4 @@
-# SPACE-CLIP
+# SPACE-CLIP: Spatial Perception via Adaptive CLIP Embeddings for Monocular Depth Estimation
 
 [Paper (arXiv)](https://arxiv.org/abs/2601.17657) · [Reproduction guide](docs/reproducibility.md) · [Archived measurements](results/nyu_layer_study) · [Historical release](docs/legacy_results.md)
 

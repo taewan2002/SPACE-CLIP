@@ -4,7 +4,7 @@ Run commands from the repository root. The CPU archive-verification path in the 
 
 ## Environment and data
 
-The experiments used Linux, Python 3.12.3, PyTorch 2.10.0, Transformers 5.2.0, and an NVIDIA RTX 5090. The complete study dependency pins are in `requirements-study.txt`. Install a PyTorch wheel appropriate for your CUDA driver, then install the pinned requirements. No mixed precision or TF32 is used in this study. Exact training trajectories can vary with hardware/software despite fixed seeds.
+The experiments used Linux, Python 3.12.3, PyTorch 2.10.0, Transformers 5.2.0, and an NVIDIA RTX 5090. The complete study dependency pins are in `requirements-study.txt`. Install a PyTorch wheel appropriate for your CUDA driver, then install the pinned requirements. The study uses float32 without mixed precision. CUDA matrix-multiplication TF32 is disabled; the cuDNN TF32 setting remains at the framework default. Exact training trajectories can vary with hardware/software despite fixed seeds.
 
 ```bash
 python3.12 -m venv .venv
