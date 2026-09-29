@@ -83,7 +83,9 @@ def write_prepared_files(study, payloads):
         temporary.replace(path)
 
 
-def prepare(root=ROOT, train_root=None, test_root=None, audit=False):
+def prepare(root=ROOT, train_root=None, test_root=None, audit=False, seed=42):
+    if seed not in range(42, 47):
+        raise ValueError("The released five-seed protocol uses seeds 42 through 46")
     root = Path(root).resolve()
     default = root / "datasets/kitti_nyu/nyu_depth_v2"
     train_root = Path(train_root or default / "sync").expanduser().resolve()
@@ -93,6 +95,7 @@ def prepare(root=ROOT, train_root=None, test_root=None, audit=False):
     payloads["split_manifest.json"] = (json.dumps(manifest, indent=2) + "\n").encode()
     for variant in VARIANTS:
         config = yaml.safe_load((root / f"configs/layer_study/{variant}.yaml").read_text())
+        config["random_seed"] = seed
         config["root"] = str(root)
         for key in ("data_path", "gt_path", "data_path_eval", "gt_path_eval"):
             config[key] = str(train_root)
@@ -127,9 +130,17 @@ def main():
     parser.add_argument("--train-root", type=Path, help="NYU sync directory for train/validation")
     parser.add_argument("--test-root", type=Path, help="Official 654-image test directory")
     parser.add_argument("--audit", action="store_true", help="Check RGB/depth files before writing")
+    parser.add_argument("--seed", type=int, choices=range(42, 47), default=42)
     args = parser.parse_args()
     print(
-        json.dumps(prepare(train_root=args.train_root, test_root=args.test_root, audit=args.audit))
+        json.dumps(
+            prepare(
+                train_root=args.train_root,
+                test_root=args.test_root,
+                audit=args.audit,
+                seed=args.seed,
+            )
+        )
     )
 
 

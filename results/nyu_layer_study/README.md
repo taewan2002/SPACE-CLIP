@@ -1,4 +1,6 @@
-# Curated measurements for the controlled v1 study
+# Original seed-42 measurements for the controlled v1 study
+
+The final manuscript uses [all five seeds](../nyu_multiseed). This archive preserves the initial seed-42 analysis and the shared split, frozen-feature, and sample records.
 
 This archive contains numerical measurements, split/sample identities, initialization records, training histories, and full-precision summaries. It contains no trained weights or dataset pixels. JSONL records are losslessly gzip-compressed with a fixed gzip timestamp.
 
@@ -28,4 +30,4 @@ python -m scripts.layer_study.build_results
 
 Verification recalculates the official-test means, validation-selected checkpoint, and raw/projected/perturbation scene-bootstrap summaries. The table/figure builder writes `study/paper-figures/`, including full-precision CSV records. This reproduces aggregation of archived measurements; independent model prediction reproduction additionally requires the data and training described in the [guide](../../docs/reproducibility.md).
 
-Interpretation is limited to one training seed. Fourier analyses use validation scenes also used for checkpoint selection. The post-hoc regional contrasts are explicitly exploratory and unadjusted for multiplicity. See the [README](../../README.md) for results and limitations.
+Interpretation is limited to one training seed. Fourier analyses use validation scenes also used for checkpoint selection. The post-hoc regional contrasts are explicitly exploratory and unadjusted for multiplicity. The final five-seed results and their limitations are in the [README](../../README.md).

@@ -24,8 +24,10 @@ jobs:
           python -m pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
       - name: Check study code
         run: |
-          ruff check scripts/layer_study
-          ruff format --check scripts/layer_study
-          python -m pytest -q scripts/layer_study
+          ruff check scripts/layer_study scripts/multiseed
+          ruff format --check scripts/layer_study scripts/multiseed
+          python -m pytest -q scripts/layer_study scripts/multiseed
       - name: Regenerate manuscript tables and figures from archived measurements
-        run: python -m scripts.layer_study.build_results
+        run: |
+          python -m scripts.layer_study.build_results
+          python -m scripts.multiseed.build
