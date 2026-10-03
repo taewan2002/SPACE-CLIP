@@ -1,0 +1,48 @@
+{
+  "scope": "SPACE-CLIP v1 controlled NYU layer and frequency study; separate from v2",
+  "public_base_commit": "543eb5e8cd4a233bd6a823a975970d4b4d29b236",
+  "archived_training_commit": "2d55c36e04d4cd5f2068f33bd309f3fc87fba58b",
+  "archived_analysis_commit": "4ee1b96a7af22339e449b2a9d335ea1a39d36bb0",
+  "archived_qualitative_commit": "c628466b3b066543dd988a0d2691e64de921ea19",
+  "archive_commit_note": "Internal experiment-stage identifiers; the portable equivalent source is included in this release.",
+  "clip_revision": "57c216476eefef5ab752ec549e440a49ae4ae5f3",
+  "core_source_sha256": {
+    "space_clip.py": "cddb561c7a88732f63a23b88a5009000c713ece003e396d20e2ec02e37325ef5",
+    "utils/dataloader.py": "f80a102559b4af76402e32fdce5772c17c3b97a542cc750b5318dfc67b7cf5a6",
+    "utils/loss.py": "098c4983165f3ac8ce67306376b8b214de3042f6131aea08ab2c0946837af294"
+  },
+  "original_study_source_sha256": {
+    "__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build_qualitative.py": "064025368926ed5bd5c941c90a27915b6048ca4de60989634567fe4d78d36fa6",
+    "build_results.py": "4dc5a2985f426d3b1d9f2945d8d9ef0f7ca7def87d1848540934dcbf628dd9eb",
+    "export_qualitative.py": "1045f9b2cb47369734a76f042a4f7c219795d74753e2a5fde706fe1e7b108dd9",
+    "fourier_analysis.py": "6e36f6ccf5924e7d72fc68e8885674897d28edbc6f7dbf442b5b7fb24d7a8d3e",
+    "metrics.py": "e6455e849b3801a56fc4b6bdfc3167fbc45ae3a76a1b8ede932b954fe8592b5d",
+    "prepare.py": "3d87275796d1a18248c0a8637a69b94e31ae4c821749d8e95c3db5da4b6ed35d",
+    "run.py": "76ddf6d5f2081f581e828feac7d6bc83c4319028a23267f19567966c92f6fcd2",
+    "run_fourier_followup.py": "a59f20645879ad7daf5d2403d91c041308735808cdb6c6e9d7cd58d817c8d99a",
+    "run_queue.py": "b57a957db10944c03b845bf46d54fee1b6e85f8ce98f3547585124acf89a2140",
+    "spectral.py": "e257fe3bdcfac6d3eb9083cb18dab6f42cbfc4dfe935e5fe788a28c879951cdf",
+    "summarize.py": "d44c6d39a524044c9fa655e1c15008c5a7e200c7183a071e7a09bf7118ff5d49",
+    "test_protocol.py": "aeaa9a21ae923659f8213104d9d4036a48337f87fff7f57e03e3ec1e65c7d90f",
+    "test_spectral.py": "51f0dd9ab6144c84a3b1087bdc21f560c73f76e4d30d2e07972e71828c26f839"
+  },
+  "original_environment": {
+    "python": "3.12.3",
+    "torch": "2.10.0",
+    "transformers": "5.2.0",
+    "numpy": "2.4.6",
+    "scipy": "1.18.1",
+    "matplotlib": "3.10.9",
+    "gpu": "NVIDIA GeForce RTX 5090"
+  },
+  "public_packaging_changes": [
+    "Repository-relative templates and separate local configuration generation",
+    "Formatting, explicit imports and import-safe figure CLIs",
+    "Lossless deterministic gzip of per-image measurements",
+    "Shared perturbation aggregation and lazy torch import for CPU-only result checks",
+    "Preflight checks prevent configuration/result overwrite"
+  ],
+  "checkpoint_availability": "Trained decoder checkpoints are not bundled. Full training is required for independent prediction regeneration.",
+  "config_hash_note": "Archived hashes describe original machine-local configurations. New runs have path-dependent configuration hashes."
+}

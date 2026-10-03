@@ -1,0 +1,8 @@
+{
+  "completed": true,
+  "best_validation_abs_rel": 0.13125067615776856,
+  "elapsed_seconds_this_invocation": 4300.095341927001,
+  "backbone_unchanged": true,
+  "official_test_used_for_selection": false,
+  "final_trainable_sha256": "a148ded1d0ca8423b8297e81a270139b839c9da4924a62b48a7a28b1e74f2f83"
+}

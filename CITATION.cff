@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "Please cite the SPACE-CLIP preprint when using this code."
+title: "SPACE-CLIP: Spatial Perception via Adaptive CLIP Embeddings for Monocular Depth Estimation"
+type: software
+date-released: 2026-10-03
+authors:
+  - family-names: Cho
+    given-names: Taewan
+  - family-names: Kim
+    given-names: Taeryang
+  - family-names: Choi
+    given-names: Andrew Jaeyong
+repository-code: "https://github.com/taewan2002/SPACE-CLIP"
+url: "https://arxiv.org/abs/2601.17657"
+license: Apache-2.0
+preferred-citation:
+  type: article
+  title: "SPACE-CLIP: Spatial Perception via Adaptive CLIP Embeddings for Monocular Depth Estimation"
+  authors:
+    - family-names: Cho
+      given-names: Taewan
+    - family-names: Kim
+      given-names: Taeryang
+    - family-names: Choi
+      given-names: Andrew Jaeyong
+  journal: arXiv
+  year: 2026
+  url: "https://arxiv.org/abs/2601.17657"

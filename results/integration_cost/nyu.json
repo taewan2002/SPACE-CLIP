@@ -1,0 +1,52 @@
+{
+  "config": "configs/nyu.yaml",
+  "device": "cuda:1",
+  "batch_size": 1,
+  "rows": [
+    {
+      "name": "Backbone Only",
+      "shared_vision_backbone": "Yes",
+      "text_conditioning_at_inference": "No",
+      "total_parameters": 85799424,
+      "trainable_parameters": 0,
+      "duplicated_backbone_parameters": 0,
+      "base_gpu_memory_mb": 337.625,
+      "peak_gpu_memory_mb": 346.859375,
+      "peak_gpu_memory_delta_mb": 9.234375,
+      "latency_per_image_ms": 3.3683308792114257,
+      "latency_std_ms": 0.03030759429394849,
+      "latency_p50_ms": 3.3812800645828247,
+      "latency_p90_ms": 3.3959999084472656
+    },
+    {
+      "name": "Shared Backbone + SPACE-CLIP",
+      "shared_vision_backbone": "Yes",
+      "text_conditioning_at_inference": "No",
+      "total_parameters": 97850420,
+      "trainable_parameters": 12050996,
+      "duplicated_backbone_parameters": 0,
+      "base_gpu_memory_mb": 386.3408203125,
+      "peak_gpu_memory_mb": 468.0625,
+      "peak_gpu_memory_delta_mb": 81.7216796875,
+      "latency_per_image_ms": 5.199735679626465,
+      "latency_std_ms": 0.02805705805227776,
+      "latency_p50_ms": 5.201359987258911,
+      "latency_p90_ms": 5.232704162597656
+    },
+    {
+      "name": "Separate Depth Backbone",
+      "shared_vision_backbone": "No",
+      "text_conditioning_at_inference": "No",
+      "total_parameters": 183649844,
+      "trainable_parameters": 12050996,
+      "duplicated_backbone_parameters": 85799424,
+      "base_gpu_memory_mb": 714.3916015625,
+      "peak_gpu_memory_mb": 796.1162109375,
+      "peak_gpu_memory_delta_mb": 81.724609375,
+      "latency_per_image_ms": 8.512409000396728,
+      "latency_std_ms": 0.05897802070924703,
+      "latency_p50_ms": 8.530960083007812,
+      "latency_p90_ms": 8.571392059326172
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "config_sha256": "d6a327fd74ef81b31335d1963fd21edf849325ca1e8a56bd5bf0d9e3dc975e71",
+  "variant": "early",
+  "structural_layers": [
+    2,
+    1,
+    0
+  ],
+  "main_layers": [
+    12,
+    9,
+    6,
+    3
+  ],
+  "trainable_parameters": 12050996,
+  "total_parameters": 97850420,
+  "initial_trainable_sha256": "d09a0c27fdd30c798fe5e5134ab7989ea8f92b75091e3fae51efd6e0de0e8efc",
+  "backbone_sha256": "4849beefdc8a5b460eded436b7ffcae088bb860c3ad708ef52c9573836fe3fce",
+  "smoke_only": false,
+  "device": "NVIDIA GeForce RTX 5090",
+  "precision": "float32",
+  "micro_batch_size": 32,
+  "gradient_accumulation_steps": 1,
+  "batchnorm_batch_size": 32
+}

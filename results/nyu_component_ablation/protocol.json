@@ -1,0 +1,109 @@
+{
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "settings": {
+    "epochs": 20,
+    "learning_rate": 0.0001,
+    "weight_decay": 0.01,
+    "batch_size": 32,
+    "workers": 4,
+    "scheduler": "cosine_warmup",
+    "min_lr": 1e-06,
+    "warmup_ratio": 0.05,
+    "validate_epochs": 1,
+    "num_log_images": 0,
+    "tags": "space_clip,nyu,default,ema,aux",
+    "dataset": "nyu",
+    "input_height": 480,
+    "input_width": 640,
+    "clip_input_size": 224,
+    "do_random_rotate": true,
+    "degree": 1.0,
+    "min_depth": 0.001,
+    "max_depth": 10.0,
+    "min_depth_eval": 0.001,
+    "max_depth_eval": 10.0,
+    "eigen_crop": false,
+    "garg_crop": false,
+    "eval_crop": "eigen",
+    "median_scaling_eval": false,
+    "do_nyu_crop": false,
+    "do_nyu_crop_eval": false,
+    "do_kb_crop": false,
+    "use_film": true,
+    "use_structural_pathway": false,
+    "use_multiscale_supervision": true,
+    "aux_loss_weights": [
+      0.1,
+      0.05,
+      0.0
+    ],
+    "use_ema": true,
+    "ema_decay": 0.996,
+    "eval_with_ema": false,
+    "eval_both_for_best": true,
+    "eval_flip_tta": false,
+    "final_eval_flip_tta": true,
+    "clip_model_name": "openai/clip-vit-base-patch16",
+    "freeze_clip_vision": true,
+    "clip_interpolate_pos_encoding": false,
+    "main_path_indices": [
+      12,
+      9,
+      6,
+      3
+    ],
+    "structural_path_indices": [
+      2,
+      1,
+      0
+    ],
+    "film_param_hidden_dim": 256,
+    "decoder_channels": [
+      256,
+      128,
+      64,
+      32
+    ],
+    "decoder_dropout": 0.1,
+    "w_ssim": 0.5,
+    "w_grad": 0.0,
+    "use_image_orig_for_clip": false,
+    "warn_on_skipped_samples": true,
+    "skip_warning_limit": 20,
+    "strict_data_loading": true,
+    "variant": "main_only",
+    "gradient_accumulation_steps": 1,
+    "eval_batch_size": 1,
+    "eval_workers": 2,
+    "cpu_threads": 4,
+    "use_wandb": false,
+    "gpu_memory_fraction": 0.4
+  },
+  "split_sha256": {
+    "test.txt": "e92c191d5835a22589b843c11b80cd7235d5bd0d4136e42a6debcea4511bf906",
+    "train.txt": "303748b4056dbcbdab7dafe8a7ec26eb3677fb8cbcbc4f75030b0c523e16dd1d",
+    "validation.txt": "dc7f0e200061fd827a9f17e0130c843d7787b2353c0931e2fa21c476452bca56"
+  },
+  "primary_comparison": "early minus main_only, whole-image AbsRel",
+  "secondary_comparisons": [
+    "middle minus main_only",
+    "late minus main_only"
+  ],
+  "post_hoc_extension": true,
+  "parameter_matched": false,
+  "all_new_runs_train_before_new_test": true,
+  "original_config_sha256": {
+    "42": "fb01c0fcb176b68eef18e22063e6608fc862a17f3bcfb7e8cd1d055a78e3ee9b",
+    "43": "bcc18f29208300e9e4bb41db47d3e28c7dd60cbb93a74184297825458d6662be",
+    "44": "f843e1745a5e1a81d7a6418c726e0e67a52afa265544dc4226048ad8db8fd643",
+    "45": "b2f784c812ba072db34d4d8519636284f2cc80647ed2d13856834ead12c90f30",
+    "46": "30b9ad7937f6bef0cff9849e2644569f6d7078f8a6a58278a4c88eeb2c57f0f1"
+  },
+  "path_policy": "Machine-local paths, descriptive run names, and the unused legacy gpu field are omitted; the runner selects cuda:0 within CUDA_VISIBLE_DEVICES. Original configuration hashes remain in each run. Use the preparation helper to generate local paths."
+}
